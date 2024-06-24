@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="3ea41bbe-5d45-4981-8c67-dc73564fcda8" name="bigpurple">
+        <fileTransfer rootFolder="/gpfs/data/buzsakilab/wy547/" accessType="SFTP" host="bigpurple.nyumc.org" port="22" sshConfigId="fadcfa3a-c96e-471d-8a04-525297e9053c" sshConfig="wy547@bigpurple.nyumc.org:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
