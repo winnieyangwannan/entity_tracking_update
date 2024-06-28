@@ -11,10 +11,10 @@ from transformer_lens import utils
 parser = argparse.ArgumentParser()
 parser.add_argument('--chat_response_file', type =str, default='D:/Code/entity_tracking_update/chat_response/entity_tracking_3e_2o_1u_prompt_config_3_Llama-2-7b-chat-hf.jsonl')
 parser.add_argument('--prompt_file', type =str, default='D:/Code/entity_tracking_update/data/entity_tracking_3e_2o_1u_prompt_config_3.jsonl')
-parser.add_argument('--model_name_base', type =str, default='stanford-crfm/alias-gpt2-small-x21')
+parser.add_argument('--model_name_base', type =str, default='stanford-crfm/alias-gpt2-small-x21') #meta-llama/Llama-2-7b-chat-hf
 parser.add_argument('--model_name_tuned', type =str, default='stanford-crfm/alias-gpt2-small-x21')
 parser.add_argument('--hf_token', type =str, default='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')
-parser.add_argument('--save_path', type =str, default='D://Code/entity_tracking_update/compare_chat_tuned_models')
+parser.add_argument('--save_path', type =str, default='D://Code/entity_tracking_update/compare_base_tuned_models')
 
 args = parser.parse_args()
 chat_response_file = args.chat_response_file

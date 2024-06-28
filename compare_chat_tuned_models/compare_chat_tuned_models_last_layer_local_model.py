@@ -7,21 +7,24 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformer_lens import HookedTransformer
 from transformer_lens import utils
 
-
 parser = argparse.ArgumentParser()
-parser.add_argument('--chat_response_file', type =str, default='D:/Code/entity_tracking_update/chat_response/entity_tracking_3e_2o_1u_prompt_config_3_Llama-2-7b-chat-hf.jsonl')
-parser.add_argument('--prompt_file', type =str, default='D:/Code/entity_tracking_update/data/entity_tracking_3e_2o_1u_prompt_config_3.jsonl')
-parser.add_argument('--model_name_base', type =str, default='stanford-crfm/alias-gpt2-small-x21')
-parser.add_argument('--model_name_tuned', type =str, default='stanford-crfm/alias-gpt2-small-x21')
-parser.add_argument('--hf_token', type =str, default='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')
-parser.add_argument('--save_path', type =str, default='D://Code/entity_tracking_update/compare_chat_tuned_models')
+parser.add_argument('--chat_response_file', type=str,
+                    default='D:/Code/entity_tracking_update/chat_response/entity_tracking_3e_2o_1u_prompt_config_3_Llama-2-7b-chat-hf.jsonl')
+parser.add_argument('--prompt_file', type=str,
+                    default='D:/Code/entity_tracking_update/data/entity_tracking_3e_2o_1u_prompt_config_3.jsonl')
+parser.add_argument('--model_name_base', type=str,
+                    default='meta-llama/Llama-2-7b-hf')  # stanford-crfm/alias-gpt2-small-x21
+parser.add_argument('--model_name_tuned', type=str,
+                    default='meta-llama/Llama-2-7b-chat-hf')  # meta-llama/Llama-2-7b-chat-hf
+parser.add_argument('--model_path', type=str, default='D://Data/Llama/Llama_2/')
+parser.add_argument('--save_path', type=str, default='D://Code/entity_tracking_update/compare_chat_tuned_models')
 
 args = parser.parse_args()
 chat_response_file = args.chat_response_file
 prompt_file = args.prompt_file
 model_name_base = args.model_name_base
 model_name_tuned = args.model_name_tuned
-hf_token = args.hf_token
+model_path = args.model_path
 save_path = args.save_path
 
 #
@@ -37,9 +40,8 @@ for i in range(len(data)):
     response = data[i]["response"]
     responses.append(response)
 
-
 # 2. Load Tokenizer
-tokenizer = AutoTokenizer.from_pretrained(model_name_tuned, token=hf_token)
+tokenizer = AutoTokenizer.from_pretrained(model_name_tuned)
 
 # 3. Get length of the prompt
 print(f"prompt_file: {prompt_file}")
@@ -53,21 +55,29 @@ for i in range(len(prompts_str)):
     tokens = torch.flatten(input_tokens['input_ids'])
 prompt_length = len(tokens)
 
-
 # 4. Get Logit of the Last Layer
+name2 = model_name_base.split('/')[-1]
+model_path_base = model_path + name2
+print(f'model_path_base: {model_path_base}')
+
+name2 = model_name_tuned.split('/')[-1]
+model_path_tuned = model_path + name2
+print(f'model_path_tuned: {model_path_tuned}')
+
+
 class ModelHelper:
-    def __init__(self, model_name, token, device=None, load_in_8bit=False):
+    def __init__(self, path, model_name, device=None, load_in_8bit=False):
         if device is None:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
             self.device = device
         print("loading ...")
-        print(f"model_name: {model_name}")
-        print(f"token: {token}")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name, token=token)
+        print(f"model_path: {path}")
+        # print(f"token: {token}")
+        self.tokenizer = AutoTokenizer.from_pretrained(path)
 
-        hf_model = AutoModelForCausalLM.from_pretrained(model_name, token=token,
-                                                        device_map='auto')
+        hf_model = AutoModelForCausalLM.from_pretrained(path,
+                                                        device_map='cpu')
         self.model = HookedTransformer.from_pretrained(model_name,
                                                        hf_model=hf_model,
                                                        fold_ln=False,
@@ -85,6 +95,7 @@ class ModelHelper:
 
         del hf_model
         torch.cuda.empty_cache()
+
     def logits_all_layers(self, text):
         inputs = self.tokenizer(text, return_tensors="pt")
         seq_len = inputs["input_ids"].shape[1]
@@ -128,9 +139,11 @@ class ModelHelper:
         layer_logit = self.model.unembed(resid_ln)
         return layer_logit
 
-model_base = ModelHelper(model_name_base, hf_token, load_in_8bit=False)
 
-model_tuned = ModelHelper(model_name_tuned, hf_token, load_in_8bit=False)
+model_base = ModelHelper(model_path_base, model_name_base, load_in_8bit=False)
+
+model_tuned = ModelHelper(model_path_tuned, model_name_tuned, load_in_8bit=False)
+
 
 # 5. Compare the Result of the Last Layer
 def compre_two_model_last_layer(response):
@@ -189,19 +202,22 @@ def compre_two_model_last_layer(response):
     answer_ranks_tuned = answer_tokens_ranks(tokens, prob_tuned)
 
     return kl_all[prompt_length:], prob_answer_tokens_base[prompt_length:], prob_answer_tokens_tuned[
-                                                                            prompt_length:], answer_ranks_base[prompt_length:], answer_ranks_tuned[
-                                                                                                                prompt_length:]
+                                                                            prompt_length:], answer_ranks_base[
+                                                                                             prompt_length:], answer_ranks_tuned[
+                                                                                                              prompt_length:]
+
 
 compare_result = []
 for response in responses:
-    kl, prob_answer_tokens_base,prob_answer_tokens_tuned, rank_answer_tokens_base,rank_answer_tokens_tuned = compre_two_model_last_layer(response)
+    kl, prob_answer_tokens_base, prob_answer_tokens_tuned, rank_answer_tokens_base, rank_answer_tokens_tuned = compre_two_model_last_layer(
+        response)
     entry = {}
     entry["kl"] = kl.tolist()
     entry["prob_answer_tokens_base"] = prob_answer_tokens_base.tolist()
     entry["prob_answer_tokens_tuned"] = prob_answer_tokens_tuned.tolist()
     entry["rank_answer_tokens_base"] = rank_answer_tokens_base
     entry["rank_answer_tokens_tuned"] = rank_answer_tokens_tuned
-    compare_result = np.append(compare_result,entry)
+    compare_result = np.append(compare_result, entry)
 
 print(f"kl{len(kl)}")
 print(f"prob_answer_tokens_base{len(prob_answer_tokens_base)}")
@@ -218,8 +234,5 @@ with open(result_file, "w") as outfile:
     for entry in compare_result:
         json.dump(entry, outfile)
         outfile.write('\n')
-
-
-
 
 print("Done :) ")
